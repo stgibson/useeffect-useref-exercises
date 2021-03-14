@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Card from "./Card";
 import axios from "axios";
 import { v4 as uuid } from "uuid";
@@ -8,24 +8,29 @@ const CardList = () => {
   const [deckId, setDeckId] = useState(null);
   const [cards, setCards] = useState([]);
   const [baseUrl,] = useState("https://deckofcardsapi.com/api/deck/");
-  const [cardsInDeck, setCardsInDeck] = useState(null);
   const [badDraw, setBadDraw] = useState(false);
+  const [drawing, setDrawing] = useState(false);
 
-  const drawCard = async function() {
+  const timerId = useRef(null);
+
+  const drawCard = async () => {
     try {
-      // first check if all cards have been drawn
-      if (cards.length === cardsInDeck) {
+      const res = await axios.get(`${baseUrl}${deckId}/draw/?count=1`);
+      setCards(cards => (
+        [...cards, { id: uuid(), image: res.data.cards[0].image }]
+      ));
+      if (res.data.remaining === 0) {
         setBadDraw(true);
-      }
-      else {
-        const res = await axios.get(`${baseUrl}${deckId}/draw/?count=1`);
-        const image = res.data.cards[0].image;
-        setCards(() => [...cards, { id: uuid(), image }]);
+        toggleDraw();
       }
     }
     catch (err) {
       console.log(err);
     }
+  };
+
+  const toggleDraw = () => {
+    setDrawing(drawing => !drawing);
   };
 
   // only when mounted, get a shuffled deck from the API and store its id
@@ -34,17 +39,30 @@ const CardList = () => {
       .then(res => {
         // set state
         setDeckId(res.data.deck_id);
-        setCardsInDeck(res.data.remaining);
       })
-      .catch(err => {
-        console.log(err);
-      });
+      .catch(err => console.log(err));
   }, [baseUrl]);
+
+  // if drawing is set, start interval to draw cards, otherwise stop interval
+  useEffect(() => {
+    if (drawing && !badDraw) {
+      timerId.current = setInterval(async () => {
+        await drawCard();
+        return;
+      }, 1000);
+    }
+    else {
+      clearInterval(timerId.current);
+    }
+  }, [drawing, badDraw]);
 
   return (
     <>
       <div className="CardList-button">
-        <button onClick={ drawCard }>GIMME A CARD!</button>
+        {
+          badDraw ||
+          <button onClick={ toggleDraw }>{ drawing ? "Stop drawing" : "Start drawing" }</button>
+        }
       </div>
       {
         badDraw &&
