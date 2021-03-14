@@ -1,0 +1,9 @@
+.CardList-button {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.CardList-error {
+  margin-bottom: 10px;
+  color: red;
+}
